@@ -34,7 +34,7 @@ export async function monitorCommand(url: string, flags: MonitorFlags): Promise<
       suggestion: 'Set FIRECRAWL_API_KEY. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -70,7 +70,6 @@ export async function monitorCommand(url: string, flags: MonitorFlags): Promise<
     });
 
     output(resp, format);
-    process.exit(ExitCode.Success);
   } catch (err) {
     const resp = buildErrorResponse('monitor', {
       code: 'api_error',
@@ -79,6 +78,6 @@ export async function monitorCommand(url: string, flags: MonitorFlags): Promise<
       provider: 'firecrawl',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ApiError);
+    process.exitCode = ExitCode.ApiError;
   }
 }

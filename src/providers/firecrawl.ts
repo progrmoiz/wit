@@ -112,16 +112,16 @@ export class FirecrawlProvider implements Provider {
   }
 
   async extract(url: string, schema: Record<string, unknown>, prompt?: string): Promise<ExtractResult> {
-    const jsonFormat: Record<string, unknown> = { type: 'json', schema };
-    if (prompt) jsonFormat.prompt = prompt;
+    const body: Record<string, unknown> = {
+      url,
+      formats: ['json'],
+      jsonOptions: { schema, ...(prompt ? { prompt } : {}) },
+    };
 
     const res = await request<FirecrawlScrapeResponse>(`${BASE_URL}/v2/scrape`, {
       method: 'POST',
       headers: this.headers(),
-      body: {
-        url,
-        formats: [jsonFormat],
-      },
+      body,
       provider: 'firecrawl',
       timeout: this.timeout('extract'),
     });

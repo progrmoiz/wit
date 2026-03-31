@@ -47,7 +47,6 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
     if (cached) {
       cached.metadata.cached = true;
       output(cached, format);
-      process.exit(ExitCode.Success);
       return;
     }
   }
@@ -64,7 +63,7 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
       suggestion: 'Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -94,7 +93,7 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
       suggestion: 'Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -149,5 +148,7 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
   }
 
   output(resp, format);
-  process.exit(resp.status === 'error' || resp.status === 'all_providers_failed' ? ExitCode.ApiError : ExitCode.Success);
+  if (resp.status === 'error' || resp.status === 'all_providers_failed') {
+    process.exitCode = ExitCode.ApiError;
+  }
 }

@@ -51,7 +51,7 @@ export async function researchCommand(topic: string, flags: ResearchFlags): Prom
         suggestion: 'Set EXA_API_KEY. Run: wit config check',
       }, startTime);
       output(resp, format);
-      process.exit(ExitCode.ConfigError);
+      process.exitCode = ExitCode.ConfigError;
       return;
     }
 
@@ -117,7 +117,6 @@ export async function researchCommand(topic: string, flags: ResearchFlags): Prom
       });
 
       output(resp, format);
-      process.exit(ExitCode.Success);
     } catch (err) {
       providersFailed.push('exa');
       const resp = buildErrorResponse('research', {
@@ -127,7 +126,7 @@ export async function researchCommand(topic: string, flags: ResearchFlags): Prom
         provider: 'exa',
       }, startTime);
       output(resp, format);
-      process.exit(ExitCode.ApiError);
+      process.exitCode = ExitCode.ApiError;
     }
     return;
   }
@@ -143,7 +142,7 @@ export async function researchCommand(topic: string, flags: ResearchFlags): Prom
       suggestion: 'Set EXA_API_KEY or JINA_API_KEY. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -193,5 +192,7 @@ export async function researchCommand(topic: string, flags: ResearchFlags): Prom
   });
 
   output(resp, format);
-  process.exit(resp.status === 'error' || resp.status === 'all_providers_failed' ? ExitCode.ApiError : ExitCode.Success);
+  if (resp.status === 'error' || resp.status === 'all_providers_failed') {
+    process.exitCode = ExitCode.ApiError;
+  }
 }

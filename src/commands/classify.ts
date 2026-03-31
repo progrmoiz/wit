@@ -21,7 +21,7 @@ export async function classifyCommand(texts: string[], flags: ClassifyFlags): Pr
       suggestion: 'Usage: wit classify "text" --labels "positive,negative,neutral"',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -40,7 +40,7 @@ export async function classifyCommand(texts: string[], flags: ClassifyFlags): Pr
       suggestion: 'Usage: wit classify "text" --labels "a,b,c" or echo "text" | wit classify --labels "a,b,c"',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -54,7 +54,7 @@ export async function classifyCommand(texts: string[], flags: ClassifyFlags): Pr
       suggestion: 'Set JINA_API_KEY or use --local. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -71,7 +71,6 @@ export async function classifyCommand(texts: string[], flags: ClassifyFlags): Pr
     });
 
     output(resp, format);
-    process.exit(ExitCode.Success);
   } catch (err) {
     const resp = buildErrorResponse('classify', {
       code: 'api_error',
@@ -80,6 +79,6 @@ export async function classifyCommand(texts: string[], flags: ClassifyFlags): Pr
       provider: 'jina',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ApiError);
+    process.exitCode = ExitCode.ApiError;
   }
 }

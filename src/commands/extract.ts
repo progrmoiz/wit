@@ -22,7 +22,7 @@ export async function extractCommand(url: string, flags: ExtractFlags): Promise<
       suggestion: 'Set FIRECRAWL_API_KEY. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -38,7 +38,7 @@ export async function extractCommand(url: string, flags: ExtractFlags): Promise<
         suggestion: 'Provide a valid JSON schema string, e.g. --schema \'{"type":"object","properties":{"title":{"type":"string"}}}\'',
       }, startTime);
       output(resp, format);
-      process.exit(ExitCode.ConfigError);
+      process.exitCode = ExitCode.ConfigError;
       return;
     }
   }
@@ -62,5 +62,7 @@ export async function extractCommand(url: string, flags: ExtractFlags): Promise<
   });
 
   output(resp, format);
-  process.exit(resp.status === 'error' || resp.status === 'all_providers_failed' ? ExitCode.ApiError : ExitCode.Success);
+  if (resp.status === 'error' || resp.status === 'all_providers_failed') {
+    process.exitCode = ExitCode.ApiError;
+  }
 }

@@ -28,7 +28,7 @@ export async function screenshotCommand(url: string, flags: ScreenshotFlags): Pr
       suggestion: 'Set JINA_API_KEY or FIRECRAWL_API_KEY. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -65,5 +65,7 @@ export async function screenshotCommand(url: string, flags: ScreenshotFlags): Pr
   });
 
   output(resp, format);
-  process.exit(resp.status === 'error' || resp.status === 'all_providers_failed' ? ExitCode.ApiError : ExitCode.Success);
+  if (resp.status === 'error' || resp.status === 'all_providers_failed') {
+    process.exitCode = ExitCode.ApiError;
+  }
 }

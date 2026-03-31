@@ -24,18 +24,15 @@ export async function xCommand(query: string, flags: XFlags): Promise<void> {
       suggestion: 'Set XAI_API_KEY. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
-  // Build enriched query with filters
-  let enrichedQuery = query;
-  if (flags.from) enrichedQuery += ` from:${flags.from}`;
-  if (flags.since) enrichedQuery += ` since:${flags.since}`;
-  if (flags.until) enrichedQuery += ` until:${flags.until}`;
-
   const opts: SearchOpts = {
     num: flags.num ?? 10,
+    from: flags.from,
+    since: flags.since,
+    until: flags.until,
   };
 
   let results: SearchResult[] | null = null;
@@ -43,7 +40,7 @@ export async function xCommand(query: string, flags: XFlags): Promise<void> {
   const providersFailed: string[] = [];
 
   try {
-    results = await grok.searchSocial!(enrichedQuery, opts);
+    results = await grok.searchSocial!(query, opts);
     providersUsed.push(grok.name);
   } catch {
     providersFailed.push(grok.name);
@@ -58,5 +55,7 @@ export async function xCommand(query: string, flags: XFlags): Promise<void> {
   });
 
   output(resp, format);
-  process.exit(resp.status === 'error' || resp.status === 'all_providers_failed' ? ExitCode.ApiError : ExitCode.Success);
+  if (resp.status === 'error' || resp.status === 'all_providers_failed') {
+    process.exitCode = ExitCode.ApiError;
+  }
 }

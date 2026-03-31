@@ -21,12 +21,16 @@ export function grepCommand(pattern: string, pathArg: string | undefined, args: 
     if (err.code === 'ENOENT') {
       process.stderr.write('\x1b[31mError:\x1b[0m jina-grep not found\n');
       process.stderr.write('\x1b[2mInstall jina-grep: pip install jina-grep\x1b[0m\n');
-      process.exit(ExitCode.ConfigError);
+      process.exitCode = ExitCode.ConfigError;
     } else {
       process.stderr.write(`\x1b[31mError:\x1b[0m ${err.message}\n`);
-      process.exit(ExitCode.ApiError);
+      process.exitCode = ExitCode.ApiError;
     }
+    return;
   }
 
-  process.exit(result.status ?? ExitCode.Success);
+  const code = result.status ?? ExitCode.Success;
+  if (code !== 0) {
+    process.exitCode = code;
+  }
 }

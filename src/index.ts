@@ -1,4 +1,7 @@
 import { Command } from 'commander';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { searchCommand } from './commands/search.js';
 import { readCommand } from './commands/read.js';
 import { similarCommand } from './commands/similar.js';
@@ -21,13 +24,43 @@ import { downloadCommand } from './commands/download.js';
 import { monitorCommand } from './commands/monitor.js';
 import { grepCommand } from './commands/grep.js';
 import { ExitCode } from './errors/index.js';
+import { setQuiet } from './output/index.js';
+
+const LAST_CACHE_FILE = join(homedir(), '.cache', 'wit', 'last.json');
 
 const program = new Command();
 
 program
   .name('wit')
   .description('Web Intelligence Toolkit — unified CLI for Jina, Exa, Firecrawl, and Grok')
-  .version('0.1.0');
+  .version('0.1.0')
+  .option('--quiet', 'Suppress status bar output')
+  .option('--last', 'Output the last cached result and exit');
+
+// Apply global flags before any action runs
+program.hook('preAction', () => {
+  const opts = program.opts();
+
+  if (opts.quiet) {
+    setQuiet(true);
+  }
+
+  if (opts.last) {
+    if (existsSync(LAST_CACHE_FILE)) {
+      try {
+        const content = readFileSync(LAST_CACHE_FILE, 'utf-8');
+        process.stdout.write(content + '\n');
+      } catch {
+        process.stderr.write('Error reading last result\n');
+        process.exitCode = ExitCode.ApiError;
+      }
+    } else {
+      process.stderr.write('No last result found\n');
+      process.exitCode = ExitCode.NoResults;
+    }
+    process.exit();
+  }
+});
 
 // wit search
 program

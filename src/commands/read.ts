@@ -32,7 +32,8 @@ export async function readCommand(url: string | undefined, flags: ReadFlags): Pr
       suggestion: 'Usage: wit read <url> or echo "url" | wit read',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
+    return;
   }
 
   const providers = buildProviders();
@@ -53,7 +54,8 @@ export async function readCommand(url: string | undefined, flags: ReadFlags): Pr
       suggestion: 'Set JINA_API_KEY, FIRECRAWL_API_KEY, or EXA_API_KEY',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
+    return;
   }
 
   const opts: ReadOpts = {
@@ -90,5 +92,4 @@ export async function readCommand(url: string | undefined, flags: ReadFlags): Pr
     output(resp, format);
   }
 
-  process.exit(ExitCode.Success);
 }

@@ -20,7 +20,7 @@ export async function brandCommand(url: string, flags: BrandFlags): Promise<void
       suggestion: 'Set FIRECRAWL_API_KEY. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -43,5 +43,7 @@ export async function brandCommand(url: string, flags: BrandFlags): Promise<void
   });
 
   output(resp, format);
-  process.exit(resp.status === 'error' || resp.status === 'all_providers_failed' ? ExitCode.ApiError : ExitCode.Success);
+  if (resp.status === 'error' || resp.status === 'all_providers_failed') {
+    process.exitCode = ExitCode.ApiError;
+  }
 }

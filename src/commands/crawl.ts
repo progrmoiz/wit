@@ -49,7 +49,7 @@ export async function crawlCommand(url: string, flags: CrawlFlags): Promise<void
       suggestion: 'Set FIRECRAWL_API_KEY. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -119,7 +119,9 @@ export async function crawlCommand(url: string, flags: CrawlFlags): Promise<void
     });
 
     output(resp, format);
-    process.exit(resp.status === 'error' || resp.status === 'all_providers_failed' ? ExitCode.ApiError : ExitCode.Success);
+    if (resp.status === 'error' || resp.status === 'all_providers_failed') {
+      process.exitCode = ExitCode.ApiError;
+    }
   } catch (err) {
     providersFailed.push('firecrawl');
     const resp = buildErrorResponse('crawl', {
@@ -129,6 +131,6 @@ export async function crawlCommand(url: string, flags: CrawlFlags): Promise<void
       provider: 'firecrawl',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ApiError);
+    process.exitCode = ExitCode.ApiError;
   }
 }

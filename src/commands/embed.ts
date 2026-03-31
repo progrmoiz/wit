@@ -29,7 +29,7 @@ export async function embedCommand(texts: string[], flags: EmbedFlags): Promise<
       suggestion: 'Usage: wit embed "text" or echo "text" | wit embed',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -43,7 +43,7 @@ export async function embedCommand(texts: string[], flags: EmbedFlags): Promise<
       suggestion: 'Set JINA_API_KEY or use --local. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -65,7 +65,6 @@ export async function embedCommand(texts: string[], flags: EmbedFlags): Promise<
     });
 
     output(resp, format);
-    process.exit(ExitCode.Success);
   } catch (err) {
     const resp = buildErrorResponse('embed', {
       code: 'api_error',
@@ -74,6 +73,6 @@ export async function embedCommand(texts: string[], flags: EmbedFlags): Promise<
       provider: 'jina',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ApiError);
+    process.exitCode = ExitCode.ApiError;
   }
 }

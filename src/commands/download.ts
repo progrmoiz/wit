@@ -34,7 +34,7 @@ export async function downloadCommand(url: string, flags: DownloadFlags): Promis
       suggestion: 'Set FIRECRAWL_API_KEY. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -80,7 +80,6 @@ export async function downloadCommand(url: string, flags: DownloadFlags): Promis
     });
 
     output(resp, format);
-    process.exit(ExitCode.Success);
   } catch (err) {
     providersFailed.push('firecrawl');
     const resp = buildErrorResponse('download', {
@@ -90,6 +89,6 @@ export async function downloadCommand(url: string, flags: DownloadFlags): Promis
       provider: 'firecrawl',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ApiError);
+    process.exitCode = ExitCode.ApiError;
   }
 }

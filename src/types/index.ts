@@ -85,6 +85,7 @@ export interface WitResponse<T = unknown> {
     cost_usd?: number;
     cached: boolean;
     result_count?: number;
+    provider_errors?: Record<string, string>;
   };
   error?: {
     code: string;
@@ -99,6 +100,8 @@ export interface SearchOpts {
   domains?: string[];
   excludeDomains?: string[];
   since?: string;
+  until?: string;
+  from?: string;
   tbs?: string;
   category?: string;
 }

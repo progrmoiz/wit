@@ -24,7 +24,7 @@ export async function dedupCommand(flags: DedupFlags): Promise<void> {
       suggestion: 'Usage: cat items.txt | wit dedup',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -38,7 +38,7 @@ export async function dedupCommand(flags: DedupFlags): Promise<void> {
       suggestion: 'Set JINA_API_KEY or use --local. Run: wit config check',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ConfigError);
+    process.exitCode = ExitCode.ConfigError;
     return;
   }
 
@@ -58,7 +58,6 @@ export async function dedupCommand(flags: DedupFlags): Promise<void> {
     });
 
     output(resp, format);
-    process.exit(ExitCode.Success);
   } catch (err) {
     const resp = buildErrorResponse('dedup', {
       code: 'api_error',
@@ -67,6 +66,6 @@ export async function dedupCommand(flags: DedupFlags): Promise<void> {
       provider: 'jina',
     }, startTime);
     output(resp, format);
-    process.exit(ExitCode.ApiError);
+    process.exitCode = ExitCode.ApiError;
   }
 }

@@ -94,13 +94,24 @@ export class GrokProvider implements Provider {
     }));
   }
 
-  async searchSocial(query: string, _opts: SearchOpts = {}): Promise<SearchResult[]> {
+  async searchSocial(query: string, opts: SearchOpts = {}): Promise<SearchResult[]> {
+    const xSearchConfig: Record<string, unknown> = {};
+    if (opts.from) xSearchConfig.allowed_x_handles = [opts.from];
+
+    const dateRange: Record<string, string> = {};
+    if (opts.since) dateRange.start = opts.since;
+    if (opts.until) dateRange.end = opts.until;
+    if (Object.keys(dateRange).length > 0) xSearchConfig.date_range = dateRange;
+
     const res = await request<GrokResponse>(`${BASE_URL}/responses`, {
       method: 'POST',
       headers: this.headers(),
       body: {
         model: 'grok-4-1-fast',
-        tools: [{ type: 'x_search' }],
+        tools: [{
+          type: 'x_search',
+          ...(Object.keys(xSearchConfig).length > 0 ? { x_search: xSearchConfig } : {}),
+        }],
         input: query,
       },
       provider: 'grok',

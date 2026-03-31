@@ -52,12 +52,16 @@ import { FirecrawlProvider } from './firecrawl.js';
 import { GrokProvider } from './grok.js';
 import { resolveKey } from '../config/index.js';
 
+let _cachedProviders: Provider[] | null = null;
+
 export function buildProviders(): Provider[] {
+  if (_cachedProviders !== null) return _cachedProviders;
   const providers: Provider[] = [];
   providers.push(new JinaProvider(() => resolveKey('jina')));
   providers.push(new ExaProvider(() => resolveKey('exa')));
   providers.push(new FirecrawlProvider(() => resolveKey('firecrawl')));
   providers.push(new GrokProvider(() => resolveKey('grok')));
+  _cachedProviders = providers;
   return providers;
 }
 

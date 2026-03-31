@@ -1,6 +1,11 @@
 import type { WitResponse, SearchResult, ReadResult, EmbedResult, RerankResult, ClassifyResult, DedupResult } from '../types/index.js';
+import { logCommand } from '../logging/index.js';
 
 export type OutputFormat = 'json' | 'table';
+
+// Module-level quiet flag — set by index.ts before dispatching commands
+let _quiet = false;
+export function setQuiet(q: boolean): void { _quiet = q; }
 
 export function detectFormat(jsonFlag?: boolean): OutputFormat {
   if (jsonFlag) return 'json';
@@ -115,6 +120,8 @@ function printTable<T>(response: WitResponse<T>): void {
 }
 
 function printStatusBar<T>(response: WitResponse<T>): void {
+  if (_quiet) return;
+
   const parts: string[] = [];
 
   for (const p of response.metadata.providers_used) {
@@ -149,6 +156,7 @@ export function buildResponse<T>(
     costUsd?: number;
     cached?: boolean;
     resultCount?: number;
+    providerErrors?: Record<string, string>;
   }
 ): WitResponse<T> {
   const elapsed = Date.now() - opts.startTime;
@@ -159,6 +167,21 @@ export function buildResponse<T>(
       : Array.isArray(data) && (data as unknown[]).length === 0
         ? 'no_results'
         : 'success';
+
+  const exitCode = status === 'all_providers_failed' ? 1 : 0;
+
+  // Fire-and-forget audit log
+  logCommand({
+    command,
+    query: opts.query,
+    providers_used: opts.providersUsed,
+    providers_failed: opts.providersFailed,
+    result_count: opts.resultCount ?? (Array.isArray(data) ? (data as unknown[]).length : undefined),
+    elapsed_ms: elapsed,
+    cost_usd: opts.costUsd,
+    cached: opts.cached ?? false,
+    exit_code: exitCode,
+  });
 
   return {
     version: '1',
@@ -173,6 +196,9 @@ export function buildResponse<T>(
       cost_usd: opts.costUsd,
       cached: opts.cached ?? false,
       result_count: opts.resultCount ?? (Array.isArray(data) ? (data as unknown[]).length : undefined),
+      ...(opts.providerErrors && Object.keys(opts.providerErrors).length > 0
+        ? { provider_errors: opts.providerErrors }
+        : {}),
     },
   };
 }

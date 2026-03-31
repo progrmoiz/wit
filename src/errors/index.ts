@@ -28,6 +28,12 @@ export class WitError extends Error {
   }
 }
 
+export function captureError(err: unknown): string {
+  if (err instanceof WitError) return err.message;
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 export function mapHttpStatus(status: number, provider: string): WitError {
   switch (status) {
     case 401:
