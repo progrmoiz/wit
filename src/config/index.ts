@@ -1,7 +1,46 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { z } from 'zod';
+
+// Load .env file (simple KEY=VALUE parser, no dependency needed)
+function loadDotEnv(): void {
+  // Check multiple locations: cwd, then wit project root, then mcp-servers
+  const locations = [
+    resolve(process.cwd(), '.env'),
+    resolve(homedir(), 'Documents/Code/wit/.env'),
+    resolve(homedir(), 'Documents/Code/mcp-servers/.env'),
+  ];
+
+  for (const envPath of locations) {
+    if (existsSync(envPath)) {
+      try {
+        const content = readFileSync(envPath, 'utf-8');
+        for (const line of content.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) continue;
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx === -1) continue;
+          const key = trimmed.slice(0, eqIdx).trim();
+          let val = trimmed.slice(eqIdx + 1).trim();
+          // Strip quotes
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          // Only set if not already in env (env vars take precedence)
+          if (!process.env[key]) {
+            process.env[key] = val;
+          }
+        }
+      } catch {
+        // Ignore read errors
+      }
+    }
+  }
+}
+
+// Load .env on module init
+loadDotEnv();
 
 const ConfigSchema = z.object({
   keys: z.object({
