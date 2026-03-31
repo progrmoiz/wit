@@ -7,6 +7,25 @@ export type OutputFormat = 'json' | 'table';
 let _quiet = false;
 export function setQuiet(q: boolean): void { _quiet = q; }
 
+// Module-level verbose flag — set by index.ts before dispatching commands
+let _verbose = false;
+export function setVerbose(v: boolean): void { _verbose = v; }
+
+// Debug output to stderr — only when --verbose is active
+export function debug(msg: string): void {
+  if (_verbose) {
+    process.stderr.write(`\x1b[2m[debug] ${msg}\x1b[0m\n`);
+  }
+}
+
+// NO_COLOR support — https://no-color.org/
+const _noColor = !!process.env.NO_COLOR;
+
+// Wrap text in an ANSI escape sequence, or return plain text if color is disabled
+function c(ansi: string, text: string): string {
+  return _noColor ? text : `${ansi}${text}\x1b[0m`;
+}
+
 export function detectFormat(jsonFlag?: boolean): OutputFormat {
   if (jsonFlag) return 'json';
   if (!process.stdout.isTTY) return 'json';
@@ -25,9 +44,9 @@ export function output<T>(response: WitResponse<T>, format: OutputFormat): void 
 
 function printTable<T>(response: WitResponse<T>): void {
   if (response.status === 'error' && response.error) {
-    process.stderr.write(`\x1b[31mError:\x1b[0m ${response.error.message}\n`);
+    process.stderr.write(`${c('\x1b[31m', 'Error:')} ${response.error.message}\n`);
     if (response.error.suggestion) {
-      process.stderr.write(`\x1b[2m${response.error.suggestion}\x1b[0m\n`);
+      process.stderr.write(`${c('\x1b[2m', response.error.suggestion)}\n`);
     }
     return;
   }
@@ -38,14 +57,14 @@ function printTable<T>(response: WitResponse<T>): void {
   if (Array.isArray(data)) {
     for (let i = 0; i < data.length; i++) {
       const r = data[i] as SearchResult;
-      process.stdout.write(`\n \x1b[1m${i + 1}\x1b[0m  \x1b[1;37m${r.title}\x1b[0m\n`);
-      process.stdout.write(`    \x1b[4;34m${r.url}\x1b[0m\n`);
+      process.stdout.write(`\n ${c('\x1b[1m', String(i + 1))}  ${c('\x1b[1;37m', r.title)}\n`);
+      process.stdout.write(`    ${c('\x1b[4;34m', r.url)}\n`);
       if (r.snippet) {
         const snip = r.snippet.length > 200 ? r.snippet.slice(0, 200) + '...' : r.snippet;
-        process.stdout.write(`    \x1b[2m${snip}\x1b[0m\n`);
+        process.stdout.write(`    ${c('\x1b[2m', snip)}\n`);
       }
       const meta = [r.source, r.published].filter(Boolean).join(' · ');
-      if (meta) process.stdout.write(`    \x1b[2;36m${meta}\x1b[0m\n`);
+      if (meta) process.stdout.write(`    ${c('\x1b[2;36m', meta)}\n`);
     }
     process.stdout.write('\n');
     printStatusBar(response);
@@ -55,9 +74,9 @@ function printTable<T>(response: WitResponse<T>): void {
   // Read result
   if (data && typeof data === 'object' && 'content' in data) {
     const r = data as unknown as ReadResult;
-    process.stdout.write(`\x1b[1;37m${r.title}\x1b[0m\n`);
-    process.stdout.write(`\x1b[4;34m${r.url}\x1b[0m\n`);
-    process.stdout.write(`\x1b[2m${r.word_count} words · ${r.source}\x1b[0m\n\n`);
+    process.stdout.write(`${c('\x1b[1;37m', r.title)}\n`);
+    process.stdout.write(`${c('\x1b[4;34m', r.url)}\n`);
+    process.stdout.write(`${c('\x1b[2m', `${r.word_count} words · ${r.source}`)}\n\n`);
     process.stdout.write(r.content + '\n');
     return;
   }
@@ -66,13 +85,13 @@ function printTable<T>(response: WitResponse<T>): void {
   if (data && typeof data === 'object' && 'embeddings' in data) {
     const r = data as unknown as EmbedResult;
     const dims = r.embeddings[0]?.length ?? 0;
-    process.stdout.write(`\x1b[1;37m${r.embeddings.length} embeddings\x1b[0m  \x1b[2m${dims}d · ${r.model} · ${r.source}\x1b[0m\n`);
+    process.stdout.write(`${c('\x1b[1;37m', `${r.embeddings.length} embeddings`)}  ${c('\x1b[2m', `${dims}d · ${r.model} · ${r.source}`)}\n`);
     for (let i = 0; i < Math.min(r.embeddings.length, 3); i++) {
       const preview = r.embeddings[i].slice(0, 4).map(v => v.toFixed(4)).join(', ');
-      process.stdout.write(`  \x1b[2m[${preview}...]\x1b[0m\n`);
+      process.stdout.write(`  ${c('\x1b[2m', `[${preview}...]`)}\n`);
     }
     if (r.embeddings.length > 3) {
-      process.stdout.write(`  \x1b[2m... and ${r.embeddings.length - 3} more\x1b[0m\n`);
+      process.stdout.write(`  ${c('\x1b[2m', `... and ${r.embeddings.length - 3} more`)}\n`);
     }
     printStatusBar(response);
     return;
@@ -85,7 +104,7 @@ function printTable<T>(response: WitResponse<T>): void {
       const item = r.results[i];
       const score = item.score.toFixed(4);
       const text = item.text.length > 120 ? item.text.slice(0, 120) + '...' : item.text;
-      process.stdout.write(`\n \x1b[1m${i + 1}\x1b[0m  \x1b[2;36m${score}\x1b[0m  ${text}\n`);
+      process.stdout.write(`\n ${c('\x1b[1m', String(i + 1))}  ${c('\x1b[2;36m', score)}  ${text}\n`);
     }
     process.stdout.write('\n');
     printStatusBar(response);
@@ -95,9 +114,9 @@ function printTable<T>(response: WitResponse<T>): void {
   // ClassifyResult
   if (data && typeof data === 'object' && 'classifications' in data) {
     const r = data as unknown as ClassifyResult;
-    for (const c of r.classifications) {
-      const text = c.text.length > 60 ? c.text.slice(0, 60) + '...' : c.text;
-      process.stdout.write(`  \x1b[1;37m${text}\x1b[0m  →  \x1b[32m${c.label}\x1b[0m  \x1b[2m(${c.score.toFixed(4)})\x1b[0m\n`);
+    for (const cls of r.classifications) {
+      const text = cls.text.length > 60 ? cls.text.slice(0, 60) + '...' : cls.text;
+      process.stdout.write(`  ${c('\x1b[1;37m', text)}  →  ${c('\x1b[32m', cls.label)}  ${c('\x1b[2m', `(${cls.score.toFixed(4)})`)}\n`);
     }
     printStatusBar(response);
     return;
@@ -106,7 +125,7 @@ function printTable<T>(response: WitResponse<T>): void {
   // DedupResult
   if (data && typeof data === 'object' && 'unique' in data) {
     const r = data as unknown as DedupResult;
-    process.stdout.write(`\x1b[1;37m${r.unique.length} unique\x1b[0m  \x1b[2m(${r.removed} removed · ${r.source})\x1b[0m\n\n`);
+    process.stdout.write(`${c('\x1b[1;37m', `${r.unique.length} unique`)}  ${c('\x1b[2m', `(${r.removed} removed · ${r.source})`)}\n\n`);
     for (const item of r.unique) {
       process.stdout.write(`  ${item}\n`);
     }
@@ -125,10 +144,10 @@ function printStatusBar<T>(response: WitResponse<T>): void {
   const parts: string[] = [];
 
   for (const p of response.metadata.providers_used) {
-    parts.push(`\x1b[32m${p} ✓\x1b[0m`);
+    parts.push(c('\x1b[32m', `${p} ✓`));
   }
   for (const p of response.metadata.providers_failed) {
-    parts.push(`\x1b[31m${p} ✗\x1b[0m`);
+    parts.push(c('\x1b[31m', `${p} ✗`));
   }
 
   if (response.metadata.result_count !== undefined) {
@@ -139,10 +158,10 @@ function printStatusBar<T>(response: WitResponse<T>): void {
     parts.push(`$${response.metadata.cost_usd.toFixed(3)}`);
   }
   if (response.metadata.cached) {
-    parts.push('\x1b[33mcached\x1b[0m');
+    parts.push(c('\x1b[33m', 'cached'));
   }
 
-  process.stderr.write(`\x1b[2m ${parts.join('  |  ')} \x1b[0m\n`);
+  process.stderr.write(`${c('\x1b[2m', ` ${parts.join('  |  ')} `)}\n`);
 }
 
 export function buildResponse<T>(

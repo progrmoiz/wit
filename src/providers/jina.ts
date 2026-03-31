@@ -156,7 +156,8 @@ export class JinaProvider implements Provider {
       headers['X-Retain-Images'] = 'none';
     }
     if (opts.selector) headers['X-Target-Selector'] = opts.selector;
-    if (opts.wait) headers['X-Wait-For-Selector'] = opts.selector ?? '';
+    if (opts.selector) headers['X-Wait-For-Selector'] = opts.selector;
+    if (opts.wait) headers['X-Timeout'] = String(Math.ceil(opts.wait / 1000));
 
     const res = await request<JinaReadResponse>(READER_BASE, {
       method: 'POST',
@@ -366,12 +367,16 @@ function cosineDist(a: number[], b: number[]): number {
 }
 
 function parseSince(since: string): string {
-  const map: Record<string, string> = {
-    '1h': 'qdr:h', h: 'qdr:h',
-    '1d': 'qdr:d', d: 'qdr:d',
-    '1w': 'qdr:w', w: 'qdr:w',
-    '1m': 'qdr:m', m: 'qdr:m',
-    '1y': 'qdr:y', y: 'qdr:y',
-  };
-  return map[since.toLowerCase()] ?? since;
+  const lower = since.toLowerCase();
+  // Match any number followed by a unit: e.g. 7d, 2w, 30d, 1h
+  // Google tbs only supports qdr:{unit} — extract the unit and map it
+  const match = lower.match(/^\d+([hdwmy])$/);
+  if (match) {
+    return `qdr:${match[1]}`;
+  }
+  // Exact single-unit shortcuts without a number prefix
+  const unitMap: Record<string, string> = { h: 'qdr:h', d: 'qdr:d', w: 'qdr:w', m: 'qdr:m', y: 'qdr:y' };
+  if (unitMap[lower]) return unitMap[lower];
+  // Fall back to passing through (e.g. ISO date strings)
+  return lower;
 }

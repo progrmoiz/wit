@@ -1,4 +1,5 @@
 import { mapHttpStatus, WitError, ExitCode } from '../errors/index.js';
+import { debug } from '../output/index.js';
 
 const RETRY_BACKOFF = [1000, 2000, 4000];
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
@@ -18,6 +19,7 @@ export async function request<T = unknown>(url: string, opts: RequestOpts): Prom
 
   for (let attempt = 0; attempt <= RETRY_BACKOFF.length; attempt++) {
     try {
+      debug(`${method} ${url} [${provider}]`);
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
 

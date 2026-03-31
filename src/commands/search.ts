@@ -131,13 +131,16 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
   const unique = dedup(results) as SearchResult[];
   const final = unique.slice(0, opts.num);
 
+  const costMap: Record<string, number> = { exa: 0.005, jina: 0.01, firecrawl: 0.005, grok: 0.01 };
+  const costUsd = providersUsed.reduce((sum, p) => sum + (costMap[p] ?? 0.01), 0);
+
   const resp = buildResponse('search', final, {
     query,
     startTime,
     providersUsed,
     providersFailed,
     resultCount: final.length,
-    costUsd: providersUsed.length * 0.01,
+    costUsd,
   });
 
   // Save to cache

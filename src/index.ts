@@ -24,7 +24,7 @@ import { downloadCommand } from './commands/download.js';
 import { monitorCommand } from './commands/monitor.js';
 import { grepCommand } from './commands/grep.js';
 import { ExitCode } from './errors/index.js';
-import { setQuiet } from './output/index.js';
+import { setQuiet, setVerbose } from './output/index.js';
 
 const LAST_CACHE_FILE = join(homedir(), '.cache', 'wit', 'last.json');
 
@@ -35,6 +35,7 @@ program
   .description('Web Intelligence Toolkit — unified CLI for Jina, Exa, Firecrawl, and Grok')
   .version('0.1.0')
   .option('--quiet', 'Suppress status bar output')
+  .option('--verbose', 'Show debug info (providers queried, URLs called)')
   .option('--last', 'Output the last cached result and exit');
 
 // Apply global flags before any action runs
@@ -43,6 +44,10 @@ program.hook('preAction', () => {
 
   if (opts.quiet) {
     setQuiet(true);
+  }
+
+  if (opts.verbose) {
+    setVerbose(true);
   }
 
   if (opts.last) {
@@ -330,6 +335,23 @@ configCmd
 
 // Handle uncaught errors
 process.on('uncaughtException', (err) => {
+  if (!process.stdout.isTTY) {
+    process.stdout.write(JSON.stringify({
+      version: '1',
+      status: 'error',
+      command: 'unknown',
+      data: null,
+      metadata: { elapsed_ms: 0, providers_used: [], providers_failed: [], cached: false },
+      error: { code: 'internal', message: err.message, suggestion: '' },
+    }) + '\n');
+  } else {
+    process.stderr.write(`\x1b[31mError:\x1b[0m ${err.message}\n`);
+  }
+  process.exit(ExitCode.ApiError);
+});
+
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
   if (!process.stdout.isTTY) {
     process.stdout.write(JSON.stringify({
       version: '1',

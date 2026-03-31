@@ -157,6 +157,9 @@ export function setConfigValue(key: string, value: string): void {
   cachedConfig = null; // Clear cache
 }
 
+// NOTE: This is a naive TOML parser that only handles flat [section] + key = value
+// pairs. It does not support arrays, inline tables, multi-line strings, or dotted
+// keys. It works for our simple config format — don't use it for complex TOML.
 function parseSimpleToml(content: string): Record<string, unknown> {
   const result: Record<string, Record<string, unknown>> = {};
   let currentSection = '';

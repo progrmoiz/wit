@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, statSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { WitResponse } from '../types/index.js';
@@ -39,6 +39,8 @@ export function getCached<T>(
   }
 }
 
+let _writeCount = 0;
+
 export function setCached<T>(
   command: string,
   query: string,
@@ -52,8 +54,27 @@ export function setCached<T>(
     writeFileSync(filePath, JSON.stringify(response), 'utf-8');
     // Also save as last.json for --last replay
     writeFileSync(join(CACHE_DIR, 'last.json'), JSON.stringify(response), 'utf-8');
+    _writeCount++;
+    if (_writeCount % 100 === 0) cleanupOldCache();
   } catch {
     // Cache write failures are non-fatal
+  }
+}
+
+function cleanupOldCache(): void {
+  try {
+    const files = readdirSync(CACHE_DIR);
+    const now = Date.now();
+    for (const file of files) {
+      if (file === 'last.json') continue;
+      const filepath = join(CACHE_DIR, file);
+      const stat = statSync(filepath);
+      if (now - stat.mtimeMs > 3600000) { // 1 hour
+        unlinkSync(filepath);
+      }
+    }
+  } catch {
+    // Cleanup failures are non-fatal
   }
 }
 

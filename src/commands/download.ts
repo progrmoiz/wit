@@ -56,6 +56,8 @@ export async function downloadCommand(url: string, flags: DownloadFlags): Promis
 
     const results: Array<{ url: string; file: string }> = [];
 
+    // TODO: optimize with Firecrawl batch scrape API once a batchScrape provider
+    // method is added — this fires N individual requests which works but is slower
     const reads = await Promise.allSettled(
       urls.map(u => firecrawl.read!(u, {}))
     );

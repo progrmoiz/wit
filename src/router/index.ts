@@ -83,6 +83,6 @@ export function routeSearch(intent: Intent): string[] {
       return ['exa', 'jina'];
     case 'general':
     default:
-      return ['exa', 'jina'];
+      return ['exa', 'jina', 'firecrawl'];
   }
 }
