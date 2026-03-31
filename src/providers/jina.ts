@@ -1,5 +1,5 @@
 import type { Provider, ProviderCapabilities } from './index.js';
-import type { SearchResult, ReadResult, SearchOpts, ReadOpts, TaskType } from '../types/index.js';
+import type { SearchResult, ReadResult, ScreenshotResult, SearchOpts, ReadOpts, TaskType } from '../types/index.js';
 import { request } from '../utils/http.js';
 
 const READER_BASE = 'https://r.jina.ai/';
@@ -113,6 +113,29 @@ export class JinaProvider implements Provider {
       snippet: r.description ?? r.content?.slice(0, 300) ?? '',
       source: `jina_${domain}`,
     }));
+  }
+
+  async screenshot(url: string): Promise<ScreenshotResult> {
+    const key = this.getKey();
+
+    const headers: Record<string, string> = {
+      'X-Return-Format': 'screenshot',
+    };
+    if (key) headers.Authorization = `Bearer ${key}`;
+
+    const res = await request<{ data: { image?: string; url?: string } }>(READER_BASE, {
+      method: 'POST',
+      headers,
+      body: { url },
+      provider: 'jina',
+      timeout: this.timeout('screenshot'),
+    });
+
+    return {
+      url: res.data?.url ?? url,
+      image_base64: res.data?.image,
+      source: 'jina',
+    };
   }
 
   async read(url: string, opts: ReadOpts = {}): Promise<ReadResult> {

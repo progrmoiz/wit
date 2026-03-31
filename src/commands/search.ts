@@ -2,6 +2,8 @@ import { buildProviders, getProvidersFor } from '../providers/index.js';
 import { detectFormat, output, buildResponse, buildErrorResponse } from '../output/index.js';
 import { WitError, ExitCode } from '../errors/index.js';
 import { dedup } from '../utils/url.js';
+import { classifyIntent, routeSearch } from '../router/index.js';
+import { getCached, setCached } from '../cache/index.js';
 import type { SearchResult, SearchOpts } from '../types/index.js';
 
 interface SearchFlags {
@@ -14,6 +16,7 @@ interface SearchFlags {
   exclude?: string;
   since?: string;
   json?: boolean;
+  noCache?: boolean;
 }
 
 export async function searchCommand(query: string, flags: SearchFlags): Promise<void> {
@@ -21,15 +24,68 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
   const format = detectFormat(flags.json);
   const providers = buildProviders();
 
-  const task = flags.social ? 'searchSocial'
+  // Determine task from explicit flags
+  const explicitTask = flags.social ? 'searchSocial'
     : flags.academic ? 'searchAcademic'
     : flags.news ? 'searchNews'
-    : 'search';
+    : null;
 
-  // Filter to requested provider or get all capable ones
+  const task = explicitTask ?? 'search';
+
+  const opts: SearchOpts = {
+    num: flags.num ?? 10,
+    since: flags.since,
+  };
+  if (flags.domain) opts.domains = flags.domain.split(',');
+  if (flags.exclude) opts.excludeDomains = flags.exclude.split(',');
+
+  // Check cache first
+  if (!flags.noCache) {
+    const cacheOpts: Record<string, unknown> = { task, num: opts.num, since: opts.since, domains: opts.domains, excludeDomains: opts.excludeDomains };
+    if (flags.provider) cacheOpts.provider = flags.provider;
+    const cached = getCached<SearchResult[]>('search', query, cacheOpts);
+    if (cached) {
+      cached.metadata.cached = true;
+      output(cached, format);
+      process.exit(ExitCode.Success);
+      return;
+    }
+  }
+
+  // Determine available providers
   let available = flags.provider
-    ? providers.filter(p => p.name === flags.provider)
-    : getProvidersFor(task, providers);
+    ? providers.filter(p => p.name === flags.provider && p.isConfigured())
+    : [];
+
+  if (available.length === 0 && flags.provider) {
+    const resp = buildErrorResponse('search', {
+      code: 'no_providers',
+      message: `Provider '${flags.provider}' not found or not configured`,
+      suggestion: 'Run: wit config check',
+    }, startTime);
+    output(resp, format);
+    process.exit(ExitCode.ConfigError);
+    return;
+  }
+
+  if (available.length === 0) {
+    if (explicitTask) {
+      // Use all providers capable of the explicit task
+      available = getProvidersFor(task as keyof typeof providers[0]['capabilities'], providers);
+    } else {
+      // Use smart router for intent classification
+      const intent = classifyIntent(query);
+      const orderedNames = routeSearch(intent);
+      available = orderedNames
+        .map(name => providers.find(p => p.name === name && p.isConfigured() && p.capabilities.search))
+        .filter(Boolean) as typeof providers;
+
+      // Fallback: if router gives no results, use any configured search provider
+      if (available.length === 0) {
+        available = getProvidersFor('search', providers);
+      }
+    }
+  }
 
   if (available.length === 0) {
     const resp = buildErrorResponse('search', {
@@ -39,14 +95,8 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
     }, startTime);
     output(resp, format);
     process.exit(ExitCode.ConfigError);
+    return;
   }
-
-  const opts: SearchOpts = {
-    num: flags.num ?? 10,
-    since: flags.since,
-  };
-  if (flags.domain) opts.domains = flags.domain.split(',');
-  if (flags.exclude) opts.excludeDomains = flags.exclude.split(',');
 
   const results: SearchResult[] = [];
   const providersUsed: string[] = [];
@@ -55,15 +105,21 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
   // Fan out to all available providers in parallel
   const promises = available.map(async (p) => {
     try {
-      const method = task === 'searchAcademic' ? p.searchAcademic
-        : task === 'searchNews' ? p.searchNews
-        : p.search;
-
-      if (!method) return [];
-      const r = await method.call(p, query, opts);
+      let r: SearchResult[];
+      if (task === 'searchAcademic' && p.searchAcademic) {
+        r = await p.searchAcademic(query, opts);
+      } else if (task === 'searchNews' && p.searchNews) {
+        r = await p.searchNews(query, opts);
+      } else if (task === 'searchSocial' && p.searchSocial) {
+        r = await p.searchSocial(query, opts);
+      } else if (p.search) {
+        r = await p.search(query, opts);
+      } else {
+        return [];
+      }
       providersUsed.push(p.name);
       return r;
-    } catch (err) {
+    } catch {
       providersFailed.push(p.name);
       return [];
     }
@@ -82,8 +138,15 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
     providersUsed,
     providersFailed,
     resultCount: final.length,
-    costUsd: providersUsed.length * 0.01, // rough estimate
+    costUsd: providersUsed.length * 0.01,
   });
+
+  // Save to cache
+  if (!flags.noCache) {
+    const cacheOpts: Record<string, unknown> = { task, num: opts.num, since: opts.since, domains: opts.domains, excludeDomains: opts.excludeDomains };
+    if (flags.provider) cacheOpts.provider = flags.provider;
+    setCached('search', query, cacheOpts, resp);
+  }
 
   output(resp, format);
   process.exit(resp.status === 'error' || resp.status === 'all_providers_failed' ? ExitCode.ApiError : ExitCode.Success);

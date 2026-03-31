@@ -1,6 +1,13 @@
 import { Command } from 'commander';
 import { searchCommand } from './commands/search.js';
 import { readCommand } from './commands/read.js';
+import { similarCommand } from './commands/similar.js';
+import { answerCommand } from './commands/answer.js';
+import { xCommand } from './commands/x.js';
+import { extractCommand } from './commands/extract.js';
+import { screenshotCommand } from './commands/screenshot.js';
+import { brandCommand } from './commands/brand.js';
+import { crawlCommand } from './commands/crawl.js';
 import { agentInfoCommand } from './commands/agent-info.js';
 import { configShowCommand, configCheckCommand, configSetCommand } from './commands/config-cmd.js';
 import { ExitCode } from './errors/index.js';
@@ -25,6 +32,7 @@ program
   .option('--domain <domains>', 'Include only these domains (comma-separated)')
   .option('--exclude <domains>', 'Exclude these domains (comma-separated)')
   .option('--since <period>', 'Results after period (1h, 1d, 1w, 1m, 1y or ISO date)')
+  .option('--no-cache', 'Skip cache')
   .option('--json', 'Force JSON output')
   .action(async (query, opts) => {
     await searchCommand(query, { ...opts, num: parseInt(opts.num, 10) });
@@ -43,6 +51,91 @@ program
   .option('--json', 'Force JSON output')
   .action(async (url, opts) => {
     await readCommand(url, { ...opts, wait: opts.wait ? parseInt(opts.wait, 10) : undefined });
+  });
+
+// wit similar
+program
+  .command('similar')
+  .description('Find similar pages (Exa findSimilar)')
+  .argument('<url>', 'URL to find similar pages for')
+  .option('-n, --num <count>', 'Number of results', '10')
+  .option('--json', 'Force JSON output')
+  .action(async (url, opts) => {
+    await similarCommand(url, { ...opts, num: parseInt(opts.num, 10) });
+  });
+
+// wit answer
+program
+  .command('answer')
+  .description('Direct answer with citations (Exa Answer / Grok fallback)')
+  .argument('<question>', 'Question to answer')
+  .option('--json', 'Force JSON output')
+  .action(async (question, opts) => {
+    await answerCommand(question, opts);
+  });
+
+// wit x
+program
+  .command('x')
+  .description('Search X/Twitter via Grok')
+  .argument('<query>', 'Search query')
+  .option('-n, --num <count>', 'Number of results', '10')
+  .option('--from <handle>', 'Filter by author handle')
+  .option('--since <date>', 'Results after date (YYYY-MM-DD or 1d/1w)')
+  .option('--until <date>', 'Results before date (YYYY-MM-DD)')
+  .option('--json', 'Force JSON output')
+  .action(async (query, opts) => {
+    await xCommand(query, { ...opts, num: parseInt(opts.num, 10) });
+  });
+
+// wit extract
+program
+  .command('extract')
+  .description('Structured data extraction (Firecrawl)')
+  .argument('<url>', 'URL to extract data from')
+  .option('--schema <json>', 'JSON schema for extraction')
+  .option('--prompt <text>', 'Natural language extraction prompt')
+  .option('--json', 'Force JSON output')
+  .action(async (url, opts) => {
+    await extractCommand(url, opts);
+  });
+
+// wit screenshot
+program
+  .command('screenshot')
+  .description('Screenshot a URL (Jina → Firecrawl fallback)')
+  .argument('<url>', 'URL to screenshot')
+  .option('--full-page', 'Capture full page')
+  .option('--output <file>', 'Save screenshot to file')
+  .option('--json', 'Force JSON output')
+  .action(async (url, opts) => {
+    await screenshotCommand(url, { ...opts, outputFile: opts.output });
+  });
+
+// wit brand
+program
+  .command('brand')
+  .description('Extract brand identity (Firecrawl)')
+  .argument('<url>', 'URL to extract brand from')
+  .option('--json', 'Force JSON output')
+  .action(async (url, opts) => {
+    await brandCommand(url, opts);
+  });
+
+// wit crawl
+program
+  .command('crawl')
+  .description('Full site crawl (Firecrawl async)')
+  .argument('<url>', 'URL to crawl')
+  .option('--limit <n>', 'Max pages to crawl', '100')
+  .option('--depth <n>', 'Max crawl depth', '3')
+  .option('--json', 'Force JSON output')
+  .action(async (url, opts) => {
+    await crawlCommand(url, {
+      ...opts,
+      limit: parseInt(opts.limit, 10),
+      depth: parseInt(opts.depth, 10),
+    });
   });
 
 // wit agent-info

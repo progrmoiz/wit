@@ -1,4 +1,4 @@
-import type { SearchResult, ReadResult, SearchOpts, ReadOpts, TaskType } from '../types/index.js';
+import type { SearchResult, ReadResult, ExtractResult, ScreenshotResult, BrandResult, AnswerResult, SearchOpts, ReadOpts, TaskType } from '../types/index.js';
 
 export interface ProviderCapabilities {
   search?: boolean;
@@ -31,16 +31,28 @@ export interface Provider {
   search?(query: string, opts: SearchOpts): Promise<SearchResult[]>;
   searchNews?(query: string, opts: SearchOpts): Promise<SearchResult[]>;
   searchAcademic?(query: string, opts: SearchOpts): Promise<SearchResult[]>;
+  searchSocial?(query: string, opts: SearchOpts): Promise<SearchResult[]>;
   read?(url: string, opts: ReadOpts): Promise<ReadResult>;
+  similar?(url: string, opts: SearchOpts): Promise<SearchResult[]>;
+  answer?(query: string): Promise<AnswerResult>;
+  extract?(url: string, schema: Record<string, unknown>, prompt?: string): Promise<ExtractResult>;
+  screenshot?(url: string): Promise<ScreenshotResult>;
+  brand?(url: string): Promise<BrandResult>;
+  map?(url: string): Promise<string[]>;
 }
 
 import { JinaProvider } from './jina.js';
+import { ExaProvider } from './exa.js';
+import { FirecrawlProvider } from './firecrawl.js';
+import { GrokProvider } from './grok.js';
 import { resolveKey } from '../config/index.js';
 
 export function buildProviders(): Provider[] {
   const providers: Provider[] = [];
   providers.push(new JinaProvider(() => resolveKey('jina')));
-  // Future: ExaProvider, FirecrawlProvider, GrokProvider
+  providers.push(new ExaProvider(() => resolveKey('exa')));
+  providers.push(new FirecrawlProvider(() => resolveKey('firecrawl')));
+  providers.push(new GrokProvider(() => resolveKey('grok')));
   return providers;
 }
 
