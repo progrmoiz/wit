@@ -1,159 +1,120 @@
 ---
 name: wit
-description: Web Intelligence Toolkit — unified CLI for web search, scraping, research, and ML ops across Jina, Exa, Firecrawl, and Grok. Use for any web intelligence task.
+description: "Unified web intelligence CLI. Searches, reads, extracts, researches across Jina, Exa, Firecrawl, and Grok."
+when_to_use: "Use when searching the web, reading URLs, extracting data, researching topics, or running ML ops (embed, rank, classify, dedup). Also for X/Twitter search, company intel, brand extraction, site crawling."
+allowed-tools:
+  - Bash(wit:*)
+  - Bash(node:*)
+  - Read
 ---
 
 # wit — Web Intelligence Toolkit
 
-CLI that unifies Jina, Exa, Firecrawl, and Grok. Smart-routes to best provider per task.
+CLI that smart-routes to the best provider per task. Auto-JSON when piped. Fallback chains on failure.
 
-## When to Use
+## Quick Reference
 
-- Web search (semantic, news, academic, X/Twitter)
-- Read/scrape any URL to markdown
-- Structured data extraction from web pages
-- Company intelligence (8 parallel searches)
-- Deep research (multi-source or Exa Research API)
-- Find similar pages to a URL
-- Get direct answers with citations
-- Screenshots, brand extraction, PDF extraction
-- Site crawling and downloading
-- Text embeddings, reranking, classification, deduplication
-- Semantic code search (local MLX)
-
-## Output
-
-All commands output JSON when piped (auto-detected). Every response has:
-
-```json
-{
-  "version": "1",
-  "status": "success|partial_success|all_providers_failed|no_results|error",
-  "command": "search",
-  "data": ...,
-  "metadata": { "elapsed_ms": 1500, "providers_used": ["exa"], "cached": false }
-}
-```
-
-Always pipe to `jq` for field extraction:
 ```bash
-wit search "query" --json | jq -r '.data[0].url'
+wit search "query"                    # Web search (Exa + Jina parallel)
+wit read <url>                        # URL to markdown (Jina → Firecrawl → Exa)
+wit answer "question"                 # Answer with citations (Exa → Grok)
+wit company <url>                     # Company intel (8 parallel Exa searches)
+wit x "query"                         # X/Twitter search (Grok)
+wit extract <url> --prompt "..."      # Structured extraction (Firecrawl)
+wit research "topic"                  # Deep research (multi-step or Exa API)
+wit similar <url>                     # Find similar pages (Exa)
+wit embed "text" [--local]            # Embeddings (Jina, local MLX optional)
+wit rank "query" < docs.txt           # Rerank from stdin (Jina)
+wit classify "text" --labels "a,b,c"  # Zero-shot classify (Jina)
+cat items.txt | wit dedup             # Deduplicate via embeddings (Jina)
 ```
 
-## Commands
+**Output:** Always JSON when piped (`!process.stdout.isTTY`). Force with `--json`. Parse with `jq -r '.data[0].url'`.
 
-### Search
+**Envelope:** Every response: `{version:"1", status, command, data, metadata:{elapsed_ms, providers_used, cached, cost_usd}}`.
+
+## Piping Patterns
+
 ```bash
-wit search "AI embeddings"                    # Smart-routed (Exa + Jina)
-wit search "transformer papers" --academic    # Academic (Jina arXiv)
-wit search "AI funding news" --news           # News (Exa + Jina)
-wit search "tweets about AI" --social         # X/Twitter (Grok)
-wit search "query" --provider exa             # Force specific provider
-wit search "query" --num 5 --since 1w         # 5 results from last week
-wit search "query" --domain example.com       # Restrict to domain
+wit search "AI" --json | jq -r '.data[0].url' | wit read       # Search → Read
+wit search "ML" --json | jq -r '.data[].snippet' | wit dedup   # Search → Dedup
+wit company x.com --json | jq '.data.competitors'              # Company → Competitors
+cat urls.txt | wit read                                         # Batch read
 ```
 
-### Read
-```bash
-wit read https://example.com                  # URL to markdown (Jina → Firecrawl → Exa)
-wit read https://example.com --links          # Include hyperlinks
-wit read https://example.com --selector main  # Target specific element
-cat urls.txt | wit read                       # Batch read from stdin
-```
+## Flags
 
-### X/Twitter
-```bash
-wit x "ActiveCalculator"                      # Search X (Grok exclusive)
-wit x "AI tools" --from iammoizfarooq         # Filter by handle
-wit x "SaaS" --since 2026-03-01               # Date filter
-```
+| Global | Effect |
+|--------|--------|
+| `--json` | Force JSON output |
+| `--quiet` | Suppress stderr status bar |
+| `--verbose` | Debug: show provider URLs |
+| `--last` | Replay last cached result |
+| `--no-cache` | Skip 5-min TTL cache |
+| `-p, --provider <name>` | Force: jina, exa, firecrawl, grok |
 
-### Answer
-```bash
-wit answer "What is Exa's pricing?"           # Direct answer with citations (Exa → Grok)
-```
+## Search Routing
 
-### Similar
-```bash
-wit similar https://activecalculator.com      # Find similar pages (Exa)
-```
+The `search` command auto-classifies intent:
 
-### Company
-```bash
-wit company https://exa.ai                    # Full company profile (8 parallel Exa searches)
-wit company activecalculator.com --json | jq '.data.competitors'  # Just competitors
-```
+| Flag / Pattern | Routes to |
+|---|---|
+| `--academic`, "paper", "arxiv" | Jina (arXiv) |
+| `--social`, "tweets", "@handle" | Grok |
+| `--news`, "latest", "breaking" | Exa + Jina |
+| "who is", "linkedin" | Exa (people) |
+| "funding", "startup" | Exa (company) |
+| Default | Exa + Jina + Firecrawl (parallel) |
 
-### Extract
-```bash
-wit extract https://example.com --prompt "Extract pricing tiers"
-wit extract https://example.com --schema '{"type":"object","properties":{"name":{"type":"string"},"price":{"type":"number"}}}'
-```
+## All Commands
 
-### Research
-```bash
-wit research "AI embeddings landscape"                    # Multi-step: search → read → combine
-wit research "AI embeddings" --model fast                 # Exa Research API (fast tier)
-wit research "quantum computing" --model pro              # Exa Research API (pro tier)
-wit research "topic" --max-sources 10                     # Read more sources
-```
+See [references/commands.md](references/commands.md) for full options per command.
 
-### Screenshots & Brand
-```bash
-wit screenshot https://example.com                        # Screenshot (Jina → Firecrawl)
-wit screenshot https://example.com --output shot.png      # Save to file
-wit brand https://example.com                             # Brand identity extraction (Firecrawl)
-```
-
-### Crawl & Download
-```bash
-wit crawl https://docs.example.com --limit 50             # Full site crawl (Firecrawl async)
-wit download https://docs.example.com --output ./docs     # Download as local markdown files
-wit monitor https://example.com/pricing                   # Track page changes
-```
-
-### ML Operations
-```bash
-wit embed "hello world"                       # Generate embeddings (Jina)
-wit embed "text1" "text2" --local             # Local MLX mode (Apple Silicon)
-cat docs.txt | wit rank "relevance query"     # Rerank documents
-wit classify "great product" --labels "positive,negative,neutral"
-cat items.txt | wit dedup                     # Deduplicate via embeddings
-wit grep "authentication" src/                # Semantic code search (local)
-```
-
-### PDF
-```bash
-wit pdf https://example.com/paper.pdf         # Extract figures/tables
-wit pdf 2301.12345                            # arXiv paper by ID
-wit pdf 2301.12345 --type figure              # Only figures
-```
-
-### System
-```bash
-wit config check                              # Which providers are configured
-wit config show                               # Full config with masked keys
-wit config set keys.exa xxx                   # Set API key
-wit agent-info                                # Machine-readable capabilities (always JSON)
-wit --last                                    # Replay last result
-```
+| Command | Provider(s) | Key Options |
+|---------|-------------|-------------|
+| `search <query>` | Exa+Jina+Firecrawl | `--num`, `--news`, `--academic`, `--social`, `--domain`, `--since` |
+| `read [url]` | Jina→Firecrawl→Exa | `--links`, `--images`, `--selector`, stdin batch |
+| `answer <q>` | Exa→Grok | |
+| `similar <url>` | Exa | `--num` |
+| `x <query>` | Grok | `--from`, `--since`, `--until` |
+| `company <url>` | Exa | 8 parallel searches (linkedin, funding, news, github, competitors) |
+| `research <topic>` | Exa+Jina | `--model fast\|standard\|pro`, `--max-sources` |
+| `extract <url>` | Firecrawl | `--schema <json>`, `--prompt` |
+| `brand <url>` | Firecrawl | Colors, fonts, spacing, tone |
+| `screenshot <url>` | Jina→Firecrawl | `--output <file>`, `--full-page` |
+| `crawl <url>` | Firecrawl | `--limit`, `--depth` (async poll) |
+| `download <url>` | Firecrawl | `--output <dir>`, `--limit` |
+| `monitor <url>` | Firecrawl | changeTracking format |
+| `pdf <url\|arxiv-id>` | Jina→Firecrawl | `--type figure,table,equation` |
+| `embed [texts...]` | Jina | `--local`, `--model`, `--dimensions`, stdin |
+| `rank <query>` | Jina | `--num`, `--local`, stdin docs |
+| `classify [texts...]` | Jina | `--labels` (required), `--local`, stdin |
+| `dedup` | Jina | `-k`, `--local`, stdin |
+| `grep <pattern>` | jina-grep | All GNU grep flags + `--threshold` |
+| `config show\|check\|set` | — | |
+| `agent-info` | — | Always JSON |
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | API error |
-| 2 | Config error |
-| 3 | Auth error |
-| 4 | Rate limited |
-| 5 | No results |
+0=success, 1=api_error, 2=config_error, 3=auth_error, 4=rate_limited, 5=no_results.
 
 ## Providers
 
-| Provider | Key Env Var | Capabilities |
-|----------|-------------|-------------|
-| Jina | `JINA_API_KEY` | search, read, screenshot, embed, rerank, classify, dedup, pdf, academic search |
-| Exa | `EXA_API_KEY` | search, read, similar, answer, company, research, news search |
-| Firecrawl | `FIRECRAWL_API_KEY` | search, read, extract, screenshot, brand, crawl, map, download, monitor |
-| Grok | `XAI_API_KEY` | search, X/Twitter search |
+| Provider | Env Var | Strengths |
+|----------|---------|-----------|
+| Jina | `JINA_API_KEY` | Best markdown, academic search, embeddings, rerank, classify, dedup, local MLX |
+| Exa | `EXA_API_KEY` | Semantic search, similar, answer, company data, research API |
+| Firecrawl | `FIRECRAWL_API_KEY` | JS-heavy scraping, extraction, brand, crawl, site download |
+| Grok | `XAI_API_KEY` | X/Twitter search (exclusive), web search with reasoning |
+
+Check status: `wit config check`. Set keys: `wit config set keys.jina <key>` or env vars.
+
+## Gotchas
+
+- **Firecrawl extract schema goes in `--schema`, not `--prompt`.** `--prompt` is natural language instruction. `--schema` is JSON Schema. Use both together for best results.
+- **`--no-cache` uses Commander negation.** Internally it sets `cache: false`, not `noCache: true`. If writing scripts, check the JSON envelope `metadata.cached` field.
+- **Jina search vs read use different quotas.** Search can be 402 (out of credits) while read still works. Check both independently.
+- **Grok x_search returns text, not structured results.** If `wit x` shows 0 results but the provider succeeded, the citation parsing found no `url_citation` annotations in the response. The text answer is in the raw response but not surfaced as SearchResults.
+- **`--local` requires `pip install jina-grep` and `jina grep serve start`.** Without the local MLX server running on localhost:8089, `--local` mode will fail with a connection error.
+- **Company command fires 8 parallel API calls.** Each costs ~$0.005 on Exa. Total ~$0.04 per company profile. Watch usage on free tiers.
+- **Cache key includes provider flag.** `wit search "x"` and `wit search "x" --provider exa` have different cache keys. `--no-cache` bypasses all caching.
