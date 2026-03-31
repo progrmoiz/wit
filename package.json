@@ -1,0 +1,27 @@
+{
+  "name": "wit-cli",
+  "version": "0.1.0",
+  "description": "Web Intelligence Toolkit — unified CLI for Jina, Exa, Firecrawl, and Grok",
+  "type": "module",
+  "bin": {
+    "wit": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^13.0.0",
+    "@iarna/toml": "^2.2.5",
+    "zod": "^3.23.0",
+    "chalk": "^5.4.0",
+    "ora": "^8.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "@types/node": "^22.0.0"
+  }
+}
