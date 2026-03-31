@@ -1,4 +1,4 @@
-import type { WitResponse, SearchResult, ReadResult } from '../types/index.js';
+import type { WitResponse, SearchResult, ReadResult, EmbedResult, RerankResult, ClassifyResult, DedupResult } from '../types/index.js';
 
 export type OutputFormat = 'json' | 'table';
 
@@ -49,11 +49,63 @@ function printTable<T>(response: WitResponse<T>): void {
 
   // Read result
   if (data && typeof data === 'object' && 'content' in data) {
-    const r = data as ReadResult;
+    const r = data as unknown as ReadResult;
     process.stdout.write(`\x1b[1;37m${r.title}\x1b[0m\n`);
     process.stdout.write(`\x1b[4;34m${r.url}\x1b[0m\n`);
     process.stdout.write(`\x1b[2m${r.word_count} words · ${r.source}\x1b[0m\n\n`);
     process.stdout.write(r.content + '\n');
+    return;
+  }
+
+  // EmbedResult
+  if (data && typeof data === 'object' && 'embeddings' in data) {
+    const r = data as unknown as EmbedResult;
+    const dims = r.embeddings[0]?.length ?? 0;
+    process.stdout.write(`\x1b[1;37m${r.embeddings.length} embeddings\x1b[0m  \x1b[2m${dims}d · ${r.model} · ${r.source}\x1b[0m\n`);
+    for (let i = 0; i < Math.min(r.embeddings.length, 3); i++) {
+      const preview = r.embeddings[i].slice(0, 4).map(v => v.toFixed(4)).join(', ');
+      process.stdout.write(`  \x1b[2m[${preview}...]\x1b[0m\n`);
+    }
+    if (r.embeddings.length > 3) {
+      process.stdout.write(`  \x1b[2m... and ${r.embeddings.length - 3} more\x1b[0m\n`);
+    }
+    printStatusBar(response);
+    return;
+  }
+
+  // RerankResult
+  if (data && typeof data === 'object' && 'results' in data && !Array.isArray(data)) {
+    const r = data as unknown as RerankResult;
+    for (let i = 0; i < r.results.length; i++) {
+      const item = r.results[i];
+      const score = item.score.toFixed(4);
+      const text = item.text.length > 120 ? item.text.slice(0, 120) + '...' : item.text;
+      process.stdout.write(`\n \x1b[1m${i + 1}\x1b[0m  \x1b[2;36m${score}\x1b[0m  ${text}\n`);
+    }
+    process.stdout.write('\n');
+    printStatusBar(response);
+    return;
+  }
+
+  // ClassifyResult
+  if (data && typeof data === 'object' && 'classifications' in data) {
+    const r = data as unknown as ClassifyResult;
+    for (const c of r.classifications) {
+      const text = c.text.length > 60 ? c.text.slice(0, 60) + '...' : c.text;
+      process.stdout.write(`  \x1b[1;37m${text}\x1b[0m  →  \x1b[32m${c.label}\x1b[0m  \x1b[2m(${c.score.toFixed(4)})\x1b[0m\n`);
+    }
+    printStatusBar(response);
+    return;
+  }
+
+  // DedupResult
+  if (data && typeof data === 'object' && 'unique' in data) {
+    const r = data as unknown as DedupResult;
+    process.stdout.write(`\x1b[1;37m${r.unique.length} unique\x1b[0m  \x1b[2m(${r.removed} removed · ${r.source})\x1b[0m\n\n`);
+    for (const item of r.unique) {
+      process.stdout.write(`  ${item}\n`);
+    }
+    printStatusBar(response);
     return;
   }
 

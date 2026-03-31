@@ -1,4 +1,4 @@
-import type { SearchResult, ReadResult, ExtractResult, ScreenshotResult, BrandResult, AnswerResult, SearchOpts, ReadOpts, TaskType } from '../types/index.js';
+import type { SearchResult, ReadResult, ExtractResult, ScreenshotResult, BrandResult, AnswerResult, SearchOpts, ReadOpts, TaskType, EmbedResult, RerankResult, ClassifyResult, DedupResult, EmbedOpts, RerankOpts, ClassifyOpts, DedupOpts, PdfOpts } from '../types/index.js';
 
 export interface ProviderCapabilities {
   search?: boolean;
@@ -39,6 +39,11 @@ export interface Provider {
   screenshot?(url: string): Promise<ScreenshotResult>;
   brand?(url: string): Promise<BrandResult>;
   map?(url: string): Promise<string[]>;
+  embed?(input: string[], opts: EmbedOpts): Promise<EmbedResult>;
+  rerank?(query: string, documents: string[], opts: RerankOpts): Promise<RerankResult>;
+  classify?(texts: string[], labels: string[], opts: ClassifyOpts): Promise<ClassifyResult>;
+  dedup?(items: string[], opts: DedupOpts): Promise<DedupResult>;
+  pdf?(url: string, opts: PdfOpts): Promise<unknown>;
 }
 
 import { JinaProvider } from './jina.js';

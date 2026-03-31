@@ -10,6 +10,16 @@ import { brandCommand } from './commands/brand.js';
 import { crawlCommand } from './commands/crawl.js';
 import { agentInfoCommand } from './commands/agent-info.js';
 import { configShowCommand, configCheckCommand, configSetCommand } from './commands/config-cmd.js';
+import { embedCommand } from './commands/embed.js';
+import { rankCommand } from './commands/rank.js';
+import { classifyCommand } from './commands/classify.js';
+import { dedupCommand } from './commands/dedup.js';
+import { pdfCommand } from './commands/pdf.js';
+import { companyCommand } from './commands/company.js';
+import { researchCommand } from './commands/research.js';
+import { downloadCommand } from './commands/download.js';
+import { monitorCommand } from './commands/monitor.js';
+import { grepCommand } from './commands/grep.js';
 import { ExitCode } from './errors/index.js';
 
 const program = new Command();
@@ -136,6 +146,123 @@ program
       limit: parseInt(opts.limit, 10),
       depth: parseInt(opts.depth, 10),
     });
+  });
+
+// wit embed
+program
+  .command('embed')
+  .description('Generate text embeddings (Jina)')
+  .argument('[texts...]', 'Texts to embed (or pipe via stdin)')
+  .option('--model <name>', 'Model name')
+  .option('--task <task>', 'Embedding task (text-matching, retrieval, etc.)')
+  .option('--dimensions <n>', 'Output dimensions')
+  .option('--local', 'Use local Jina server (localhost:8089)')
+  .option('--json', 'Force JSON output')
+  .action(async (texts, opts) => {
+    await embedCommand(texts, opts);
+  });
+
+// wit rank
+program
+  .command('rank')
+  .description('Rerank documents by relevance (Jina)')
+  .argument('<query>', 'Query to rank documents against')
+  .option('-n, --num <count>', 'Top N results')
+  .option('--local', 'Use local Jina server (localhost:8089)')
+  .option('--json', 'Force JSON output')
+  .action(async (query, opts) => {
+    await rankCommand(query, opts);
+  });
+
+// wit classify
+program
+  .command('classify')
+  .description('Zero-shot text classification (Jina)')
+  .argument('[texts...]', 'Texts to classify (or pipe via stdin)')
+  .requiredOption('--labels <labels>', 'Comma-separated labels')
+  .option('--local', 'Use local Jina server (localhost:8089)')
+  .option('--json', 'Force JSON output')
+  .action(async (texts, opts) => {
+    await classifyCommand(texts, opts);
+  });
+
+// wit dedup
+program
+  .command('dedup')
+  .description('Deduplicate text items from stdin (Jina embeddings)')
+  .option('-k <count>', 'Max unique items to keep')
+  .option('--local', 'Use local Jina server (localhost:8089)')
+  .option('--json', 'Force JSON output')
+  .action(async (opts) => {
+    await dedupCommand(opts);
+  });
+
+// wit pdf
+program
+  .command('pdf')
+  .description('Extract figures/tables/equations from PDF (Jina → Firecrawl fallback)')
+  .argument('<url-or-id>', 'PDF URL or arXiv ID')
+  .option('--type <types>', 'Extraction types (figure,table,equation)')
+  .option('--json', 'Force JSON output')
+  .action(async (urlOrId, opts) => {
+    await pdfCommand(urlOrId, opts);
+  });
+
+// wit company
+program
+  .command('company')
+  .description('Company intelligence profile (Exa)')
+  .argument('<url>', 'Company URL or domain')
+  .option('--json', 'Force JSON output')
+  .action(async (url, opts) => {
+    await companyCommand(url, opts);
+  });
+
+// wit research
+program
+  .command('research')
+  .description('Deep multi-source research')
+  .argument('<topic>', 'Research topic or question')
+  .option('--model <tier>', 'Use Exa Research API (fast|standard|pro)')
+  .option('--depth <level>', 'Research depth (shallow|standard|deep)')
+  .option('--max-sources <n>', 'Max sources to read', '5')
+  .option('--json', 'Force JSON output')
+  .action(async (topic, opts) => {
+    await researchCommand(topic, { ...opts, maxSources: opts.maxSources });
+  });
+
+// wit download
+program
+  .command('download')
+  .description('Download entire site as markdown files (Firecrawl)')
+  .argument('<url>', 'Site URL to download')
+  .option('--output <dir>', 'Output directory (default: current directory)')
+  .option('--limit <n>', 'Max pages to download', '50')
+  .option('--json', 'Force JSON output')
+  .action(async (url, opts) => {
+    await downloadCommand(url, opts);
+  });
+
+// wit monitor
+program
+  .command('monitor')
+  .description('Track page changes (Firecrawl changeTracking)')
+  .argument('<url>', 'URL to monitor')
+  .option('--json', 'Force JSON output')
+  .action(async (url, opts) => {
+    await monitorCommand(url, opts);
+  });
+
+// wit grep
+program
+  .command('grep')
+  .description('Semantic code search via jina-grep')
+  .argument('<pattern>', 'Search pattern')
+  .argument('[path]', 'Path to search in')
+  .allowUnknownOption(true)
+  .action((pattern, pathArg, opts) => {
+    const extra = opts.args ?? [];
+    grepCommand(pattern, pathArg, extra);
   });
 
 // wit agent-info

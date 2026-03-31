@@ -109,3 +109,29 @@ export interface ReadOpts {
   selector?: string;
   wait?: number;
 }
+
+export interface EmbedOpts {
+  model?: string;
+  task?: string;
+  dimensions?: number;
+  local?: boolean;
+}
+
+export interface RerankOpts {
+  topN?: number;
+  local?: boolean;
+}
+
+export interface ClassifyOpts {
+  local?: boolean;
+}
+
+export interface DedupOpts {
+  k?: number;
+  local?: boolean;
+}
+
+export interface PdfOpts {
+  type?: string;
+  maxEdge?: number;
+}

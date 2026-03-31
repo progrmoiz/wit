@@ -1,9 +1,12 @@
 import type { Provider, ProviderCapabilities } from './index.js';
-import type { SearchResult, ReadResult, ScreenshotResult, SearchOpts, ReadOpts, TaskType } from '../types/index.js';
+import type { SearchResult, ReadResult, ScreenshotResult, SearchOpts, ReadOpts, TaskType, EmbedResult, RerankResult, ClassifyResult, DedupResult, EmbedOpts, RerankOpts, ClassifyOpts, DedupOpts, PdfOpts } from '../types/index.js';
 import { request } from '../utils/http.js';
 
 const READER_BASE = 'https://r.jina.ai/';
 const SEARCH_BASE = 'https://svip.jina.ai/';
+const ML_BASE = 'https://api.jina.ai/v1';
+const PDF_BASE = 'https://svip.jina.ai/extract-pdf';
+const LOCAL_BASE = 'http://localhost:8089/v1';
 
 interface JinaSearchResponse {
   data: Array<{
@@ -173,6 +176,193 @@ export class JinaProvider implements Provider {
       source: 'jina',
     };
   }
+
+  async embed(input: string[], opts: EmbedOpts = {}): Promise<EmbedResult> {
+    const key = this.getKey();
+    const base = opts.local ? LOCAL_BASE : ML_BASE;
+    const defaultModel = opts.local ? 'jina-embeddings-v5-nano' : 'jina-embeddings-v5-text-small';
+
+    const body: Record<string, unknown> = {
+      model: opts.model ?? defaultModel,
+      task: opts.task ?? 'text-matching',
+      input,
+    };
+    if (opts.dimensions) body.dimensions = opts.dimensions;
+
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (key && !opts.local) headers.Authorization = `Bearer ${key}`;
+
+    const res = await request<{ data: Array<{ embedding: number[] }>; model: string }>(`${base}/embeddings`, {
+      method: 'POST',
+      headers,
+      body,
+      provider: 'jina',
+      timeout: 60000,
+    });
+
+    return {
+      embeddings: (res.data ?? []).map(d => d.embedding),
+      model: res.model ?? (opts.model ?? defaultModel),
+      source: opts.local ? 'jina_local' : 'jina',
+    };
+  }
+
+  async rerank(query: string, documents: string[], opts: RerankOpts = {}): Promise<RerankResult> {
+    const key = this.getKey();
+    const base = opts.local ? LOCAL_BASE : ML_BASE;
+    const model = opts.local ? 'jina-embeddings-v5-nano' : 'jina-reranker-v3';
+
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (key && !opts.local) headers.Authorization = `Bearer ${key}`;
+
+    const res = await request<{ results: Array<{ index: number; relevance_score: number; document: { text: string } }> }>(`${base}/rerank`, {
+      method: 'POST',
+      headers,
+      body: {
+        model,
+        query,
+        documents,
+        top_n: opts.topN ?? 10,
+      },
+      provider: 'jina',
+      timeout: 30000,
+    });
+
+    return {
+      results: (res.results ?? []).map(r => ({
+        index: r.index,
+        score: r.relevance_score,
+        text: r.document?.text ?? documents[r.index] ?? '',
+      })),
+      source: opts.local ? 'jina_local' : 'jina',
+    };
+  }
+
+  async classify(texts: string[], labels: string[], opts: ClassifyOpts = {}): Promise<ClassifyResult> {
+    const key = this.getKey();
+    const base = opts.local ? LOCAL_BASE : ML_BASE;
+    const model = opts.local ? 'jina-embeddings-v5-nano' : 'jina-embeddings-v5-text-small';
+
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (key && !opts.local) headers.Authorization = `Bearer ${key}`;
+
+    const res = await request<{ data: Array<{ text: string; prediction: string; score: number }> }>(`${base}/classify`, {
+      method: 'POST',
+      headers,
+      body: {
+        model,
+        input: texts,
+        labels,
+      },
+      provider: 'jina',
+      timeout: 30000,
+    });
+
+    return {
+      classifications: (res.data ?? []).map((d, i) => ({
+        text: texts[i] ?? d.text ?? '',
+        label: d.prediction ?? '',
+        score: d.score ?? 0,
+      })),
+      source: opts.local ? 'jina_local' : 'jina',
+    };
+  }
+
+  async dedup(items: string[], opts: DedupOpts = {}): Promise<DedupResult> {
+    const k = opts.k ?? items.length;
+
+    // Get embeddings for all items
+    const embedResult = await this.embed(items, { local: opts.local });
+    const embeddings = embedResult.embeddings;
+
+    // Greedy facility-location: pick item with max min-distance to selected set
+    const selected: number[] = [];
+    const minDist = new Array<number>(items.length).fill(Infinity);
+
+    for (let round = 0; round < Math.min(k, items.length); round++) {
+      // First round: pick item 0
+      if (selected.length === 0) {
+        selected.push(0);
+        // Update minDist based on item 0
+        for (let j = 0; j < items.length; j++) {
+          if (j !== 0) {
+            minDist[j] = Math.min(minDist[j], cosineDist(embeddings[0], embeddings[j]));
+          }
+        }
+        continue;
+      }
+
+      // Find item with max min-distance
+      let bestIdx = -1;
+      let bestDist = -1;
+      for (let j = 0; j < items.length; j++) {
+        if (selected.includes(j)) continue;
+        if (minDist[j] > bestDist) {
+          bestDist = minDist[j];
+          bestIdx = j;
+        }
+      }
+
+      // Stop if marginal gain < threshold
+      if (bestDist < 0.01) break;
+      if (bestIdx === -1) break;
+
+      selected.push(bestIdx);
+
+      // Update minDist for remaining items
+      for (let j = 0; j < items.length; j++) {
+        if (selected.includes(j)) continue;
+        minDist[j] = Math.min(minDist[j], cosineDist(embeddings[bestIdx], embeddings[j]));
+      }
+    }
+
+    const unique = selected.sort((a, b) => a - b).map(i => items[i]);
+    return {
+      unique,
+      removed: items.length - unique.length,
+      source: opts.local ? 'jina_local' : 'jina',
+    };
+  }
+
+  async pdf(url: string, opts: PdfOpts = {}): Promise<unknown> {
+    const key = this.getKey();
+
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (key) headers.Authorization = `Bearer ${key}`;
+
+    const body: Record<string, unknown> = {};
+    if (url.startsWith('http')) {
+      body.url = url;
+    } else {
+      // Treat as arXiv ID
+      body.id = url;
+    }
+    body.max_edge = opts.maxEdge ?? 1024;
+    body.type = opts.type ?? 'figure,table,equation';
+
+    const res = await request<unknown>(PDF_BASE, {
+      method: 'POST',
+      headers,
+      body,
+      provider: 'jina',
+      timeout: this.timeout('pdf'),
+    });
+
+    return res;
+  }
+}
+
+function cosineDist(a: number[], b: number[]): number {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  const sim = dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-10);
+  return 1 - sim; // distance = 1 - similarity
 }
 
 function parseSince(since: string): string {
