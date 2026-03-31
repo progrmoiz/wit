@@ -28,6 +28,18 @@ import { setQuiet, setVerbose } from './output/index.js';
 
 const LAST_CACHE_FILE = join(homedir(), '.cache', 'wit', 'last.json');
 
+// Handle --last before Commander parses (it needs no subcommand)
+if (process.argv.includes('--last')) {
+  if (existsSync(LAST_CACHE_FILE)) {
+    const data = readFileSync(LAST_CACHE_FILE, 'utf-8');
+    process.stdout.write(data + '\n');
+  } else {
+    process.stderr.write('No cached result found.\n');
+    process.exitCode = 1;
+  }
+  process.exit();
+}
+
 const program = new Command();
 
 program

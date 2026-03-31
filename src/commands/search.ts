@@ -17,6 +17,7 @@ interface SearchFlags {
   since?: string;
   json?: boolean;
   noCache?: boolean;
+  cache?: boolean;  // Commander sets cache:false for --no-cache
 }
 
 export async function searchCommand(query: string, flags: SearchFlags): Promise<void> {
@@ -40,7 +41,7 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
   if (flags.exclude) opts.excludeDomains = flags.exclude.split(',');
 
   // Check cache first
-  if (!flags.noCache) {
+  if (!flags.noCache && flags.cache !== false) {
     const cacheOpts: Record<string, unknown> = { task, num: opts.num, since: opts.since, domains: opts.domains, excludeDomains: opts.excludeDomains };
     if (flags.provider) cacheOpts.provider = flags.provider;
     const cached = getCached<SearchResult[]>('search', query, cacheOpts);
@@ -144,7 +145,7 @@ export async function searchCommand(query: string, flags: SearchFlags): Promise<
   });
 
   // Save to cache
-  if (!flags.noCache) {
+  if (!flags.noCache && flags.cache !== false) {
     const cacheOpts: Record<string, unknown> = { task, num: opts.num, since: opts.since, domains: opts.domains, excludeDomains: opts.excludeDomains };
     if (flags.provider) cacheOpts.provider = flags.provider;
     setCached('search', query, cacheOpts, resp);
