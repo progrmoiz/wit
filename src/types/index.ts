@@ -8,9 +8,12 @@ export type TaskType =
 export interface SearchResult {
   title: string;
   url: string;
-  snippet: string;
+  snippet: string;           // Clean, short (200 chars max, no \n, for display)
+  content?: string;          // Full page content/markdown (when available)
+  highlights?: string[];     // All relevant highlights (Exa)
   source: string;
-  published?: string;
+  published?: string;        // Clean date: YYYY-MM-DD (not full ISO timestamp)
+  author?: string;
   score?: number;
   image_url?: string;
   extra?: Record<string, unknown>;

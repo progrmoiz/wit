@@ -60,11 +60,23 @@ function printTable<T>(response: WitResponse<T>): void {
       process.stdout.write(`\n ${c('\x1b[1m', String(i + 1))}  ${c('\x1b[1;37m', r.title)}\n`);
       process.stdout.write(`    ${c('\x1b[4;34m', r.url)}\n`);
       if (r.snippet) {
-        const snip = r.snippet.length > 200 ? r.snippet.slice(0, 200) + '...' : r.snippet;
-        process.stdout.write(`    ${c('\x1b[2m', snip)}\n`);
+        process.stdout.write(`    ${c('\x1b[2m', r.snippet)}\n`);
       }
-      const meta = [r.source, r.published].filter(Boolean).join(' · ');
+      // Meta line: source · date · score · author
+      const metaParts: string[] = [r.source];
+      if (r.published) metaParts.push(r.published);
+      if (r.score !== undefined) metaParts.push(`score: ${r.score.toFixed(2)}`);
+      if (r.author) metaParts.push(`by ${r.author}`);
+      const meta = metaParts.join(' · ');
       if (meta) process.stdout.write(`    ${c('\x1b[2;36m', meta)}\n`);
+      // Highlights (terminal only, not quiet)
+      if (!_quiet && r.highlights && r.highlights.length > 0) {
+        process.stdout.write(`\n    ${c('\x1b[2m', 'Highlights:')}\n`);
+        for (const h of r.highlights) {
+          const line = h.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+          process.stdout.write(`    ${c('\x1b[2m', `• "${line}"`)}\n`);
+        }
+      }
     }
     process.stdout.write('\n');
     printStatusBar(response);
@@ -76,7 +88,9 @@ function printTable<T>(response: WitResponse<T>): void {
     const r = data as unknown as ReadResult;
     process.stdout.write(`${c('\x1b[1;37m', r.title)}\n`);
     process.stdout.write(`${c('\x1b[4;34m', r.url)}\n`);
-    process.stdout.write(`${c('\x1b[2m', `${r.word_count} words · ${r.source}`)}\n\n`);
+    const readMeta: string[] = [`${r.word_count} words`, r.source];
+    if (r.published) readMeta.push(r.published);
+    process.stdout.write(`${c('\x1b[2m', readMeta.join(' · '))}\n\n`);
     process.stdout.write(r.content + '\n');
     return;
   }

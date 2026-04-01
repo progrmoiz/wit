@@ -1,6 +1,7 @@
 import type { Provider, ProviderCapabilities } from './index.js';
 import type { SearchResult, ReadResult, AnswerResult, SearchOpts, ReadOpts, TaskType } from '../types/index.js';
 import { request } from '../utils/http.js';
+import { cleanSnippet, formatDate } from '../utils/format.js';
 
 const BASE_URL = 'https://api.exa.ai';
 
@@ -12,6 +13,7 @@ interface ExaSearchResponse {
     author?: string;
     score?: number;
     highlights?: string[];
+    highlightScores?: number[];
     text?: string;
   }>;
 }
@@ -67,8 +69,8 @@ export class ExaProvider implements Provider {
       type: 'auto',
       numResults: opts.num ?? 10,
       contents: {
-        highlights: true,
-        text: { maxCharacters: 300 },
+        highlights: { numSentences: 3 },
+        text: { maxCharacters: 5000 },
       },
     };
 
@@ -88,9 +90,12 @@ export class ExaProvider implements Provider {
     return (res.results ?? []).map(r => ({
       title: r.title ?? '',
       url: r.url ?? '',
-      snippet: r.highlights?.[0] ?? r.text?.slice(0, 300) ?? '',
+      snippet: cleanSnippet(r.highlights?.[0] ?? r.text?.slice(0, 200) ?? ''),
+      content: r.text ?? undefined,
+      highlights: r.highlights?.length ? r.highlights : undefined,
       source: 'exa',
-      published: r.publishedDate,
+      published: formatDate(r.publishedDate),
+      author: r.author ?? undefined,
       score: r.score,
     }));
   }
@@ -133,8 +138,8 @@ export class ExaProvider implements Provider {
         numResults: opts.num ?? 10,
         excludeSourceDomain: true,
         contents: {
-          highlights: true,
-          text: { maxCharacters: 300 },
+          highlights: { numSentences: 3 },
+          text: { maxCharacters: 5000 },
         },
       },
       provider: 'exa',
@@ -144,9 +149,12 @@ export class ExaProvider implements Provider {
     return (res.results ?? []).map(r => ({
       title: r.title ?? '',
       url: r.url ?? '',
-      snippet: r.highlights?.[0] ?? r.text?.slice(0, 300) ?? '',
+      snippet: cleanSnippet(r.highlights?.[0] ?? r.text?.slice(0, 200) ?? ''),
+      content: r.text ?? undefined,
+      highlights: r.highlights?.length ? r.highlights : undefined,
       source: 'exa',
-      published: r.publishedDate,
+      published: formatDate(r.publishedDate),
+      author: r.author ?? undefined,
       score: r.score,
     }));
   }

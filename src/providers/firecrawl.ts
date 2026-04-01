@@ -1,6 +1,7 @@
 import type { Provider, ProviderCapabilities } from './index.js';
 import type { SearchResult, ReadResult, ExtractResult, ScreenshotResult, BrandResult, SearchOpts, ReadOpts, TaskType } from '../types/index.js';
 import { request } from '../utils/http.js';
+import { cleanSnippet } from '../utils/format.js';
 
 const BASE_URL = 'https://api.firecrawl.dev';
 
@@ -82,7 +83,8 @@ export class FirecrawlProvider implements Provider {
     return (res.data ?? []).map(r => ({
       title: r.title ?? '',
       url: r.url ?? '',
-      snippet: r.description ?? r.markdown?.slice(0, 300) ?? '',
+      snippet: cleanSnippet(r.description ?? r.markdown?.slice(0, 200) ?? ''),
+      content: r.markdown ?? undefined,
       source: 'firecrawl',
     }));
   }

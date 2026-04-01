@@ -1,6 +1,7 @@
 import type { Provider, ProviderCapabilities } from './index.js';
 import type { SearchResult, ReadResult, ScreenshotResult, SearchOpts, ReadOpts, TaskType, EmbedResult, RerankResult, ClassifyResult, DedupResult, EmbedOpts, RerankOpts, ClassifyOpts, DedupOpts, PdfOpts } from '../types/index.js';
 import { request } from '../utils/http.js';
+import { cleanSnippet } from '../utils/format.js';
 
 const READER_BASE = 'https://r.jina.ai/';
 const SEARCH_BASE = 'https://svip.jina.ai/';
@@ -78,7 +79,8 @@ export class JinaProvider implements Provider {
     return (res.data ?? []).map(r => ({
       title: r.title ?? '',
       url: r.url ?? '',
-      snippet: r.description ?? r.content?.slice(0, 300) ?? '',
+      snippet: cleanSnippet(r.description ?? r.content?.slice(0, 200) ?? ''),
+      content: r.content ?? undefined,
       source: 'jina',
     }));
   }
@@ -113,7 +115,8 @@ export class JinaProvider implements Provider {
     return (res.data ?? []).map(r => ({
       title: r.title ?? '',
       url: r.url ?? '',
-      snippet: r.description ?? r.content?.slice(0, 300) ?? '',
+      snippet: cleanSnippet(r.description ?? r.content?.slice(0, 200) ?? ''),
+      content: r.content ?? undefined,
       source: `jina_${domain}`,
     }));
   }
