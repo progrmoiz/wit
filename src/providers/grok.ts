@@ -1,6 +1,7 @@
 import type { Provider, ProviderCapabilities } from './index.js';
 import type { SearchResult, SearchOpts, TaskType } from '../types/index.js';
 import { request } from '../utils/http.js';
+import { cleanSnippet } from '../utils/format.js';
 
 const BASE_URL = 'https://api.x.ai/v1';
 
@@ -85,13 +86,30 @@ export class GrokProvider implements Provider {
       timeout: this.timeout('search'),
     });
 
-    const { citations } = this.parseGrokResponse(res);
-    return citations.map(c => ({
+    const { text, citations } = this.parseGrokResponse(res);
+
+    const results: SearchResult[] = citations.map(c => ({
       title: c.title,
       url: c.url,
       snippet: '',
       source: 'grok',
     }));
+
+    if (text) {
+      if (results.length > 0) {
+        results[0] = { ...results[0], content: text, snippet: cleanSnippet(text) };
+      } else {
+        results.push({
+          title: 'Grok response',
+          url: '',
+          snippet: cleanSnippet(text),
+          content: text,
+          source: 'grok',
+        });
+      }
+    }
+
+    return results;
   }
 
   async searchSocial(query: string, opts: SearchOpts = {}): Promise<SearchResult[]> {
@@ -118,12 +136,29 @@ export class GrokProvider implements Provider {
       timeout: this.timeout('search_social'),
     });
 
-    const { citations } = this.parseGrokResponse(res);
-    return citations.map(c => ({
+    const { text, citations } = this.parseGrokResponse(res);
+
+    const results: SearchResult[] = citations.map(c => ({
       title: c.title,
       url: c.url,
       snippet: '',
       source: 'grok',
     }));
+
+    if (text) {
+      if (results.length > 0) {
+        results[0] = { ...results[0], content: text, snippet: cleanSnippet(text) };
+      } else {
+        results.push({
+          title: 'Grok response',
+          url: '',
+          snippet: cleanSnippet(text),
+          content: text,
+          source: 'grok',
+        });
+      }
+    }
+
+    return results;
   }
 }

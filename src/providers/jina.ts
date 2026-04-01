@@ -23,7 +23,10 @@ interface JinaReadResponse {
     title: string;
     url: string;
     content: string;
+    description?: string;
     publishedTime?: string;
+    links?: Record<string, string>;
+    images?: Record<string, string>;
   };
 }
 
@@ -174,9 +177,12 @@ export class JinaProvider implements Provider {
     return {
       url: res.data?.url ?? url,
       title: res.data?.title ?? '',
+      description: res.data?.description,
       content,
       published: res.data?.publishedTime,
       word_count: content.split(/\s+/).length,
+      links: res.data?.links ? Object.keys(res.data.links) : undefined,
+      images: res.data?.images ? Object.keys(res.data.images) : undefined,
       source: 'jina',
     };
   }
@@ -196,7 +202,7 @@ export class JinaProvider implements Provider {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (key && !opts.local) headers.Authorization = `Bearer ${key}`;
 
-    const res = await request<{ data: Array<{ embedding: number[] }>; model: string }>(`${base}/embeddings`, {
+    const res = await request<{ data: Array<{ embedding: number[] }>; model: string; usage?: { total_tokens?: number } }>(`${base}/embeddings`, {
       method: 'POST',
       headers,
       body,
@@ -208,6 +214,7 @@ export class JinaProvider implements Provider {
       embeddings: (res.data ?? []).map(d => d.embedding),
       model: res.model ?? (opts.model ?? defaultModel),
       source: opts.local ? 'jina_local' : 'jina',
+      usage: res.usage?.total_tokens ? { total_tokens: res.usage.total_tokens } : undefined,
     };
   }
 

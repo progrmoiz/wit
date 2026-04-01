@@ -1,5 +1,6 @@
 import type { WitResponse, SearchResult, ReadResult, EmbedResult, RerankResult, ClassifyResult, DedupResult } from '../types/index.js';
 import { logCommand } from '../logging/index.js';
+import { formatDate } from '../utils/format.js';
 
 export type OutputFormat = 'json' | 'table';
 
@@ -88,9 +89,14 @@ function printTable<T>(response: WitResponse<T>): void {
     const r = data as unknown as ReadResult;
     process.stdout.write(`${c('\x1b[1;37m', r.title)}\n`);
     process.stdout.write(`${c('\x1b[4;34m', r.url)}\n`);
-    const readMeta: string[] = [`${r.word_count} words`, r.source];
-    if (r.published) readMeta.push(r.published);
-    process.stdout.write(`${c('\x1b[2m', readMeta.join(' · '))}\n\n`);
+    const readMeta = [
+      `${r.word_count} words`,
+      r.source,
+      r.published ? formatDate(r.published) : null,
+      r.links?.length ? `${r.links.length} links` : null,
+      r.images?.length ? `${r.images.length} images` : null,
+    ].filter(Boolean).join(' · ');
+    process.stdout.write(`${c('\x1b[2m', readMeta)}\n\n`);
     process.stdout.write(r.content + '\n');
     return;
   }
@@ -100,6 +106,9 @@ function printTable<T>(response: WitResponse<T>): void {
     const r = data as unknown as EmbedResult;
     const dims = r.embeddings[0]?.length ?? 0;
     process.stdout.write(`${c('\x1b[1;37m', `${r.embeddings.length} embeddings`)}  ${c('\x1b[2m', `${dims}d · ${r.model} · ${r.source}`)}\n`);
+    if (r.usage?.total_tokens) {
+      process.stdout.write(`  ${c('\x1b[2m', `${r.usage.total_tokens} tokens`)}\n`);
+    }
     for (let i = 0; i < Math.min(r.embeddings.length, 3); i++) {
       const preview = r.embeddings[i].slice(0, 4).map(v => v.toFixed(4)).join(', ');
       process.stdout.write(`  ${c('\x1b[2m', `[${preview}...]`)}\n`);

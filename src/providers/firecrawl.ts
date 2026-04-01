@@ -106,6 +106,7 @@ export class FirecrawlProvider implements Provider {
     return {
       url: res.data?.metadata?.url ?? url,
       title: res.data?.metadata?.title ?? '',
+      description: res.data?.metadata?.description,
       content,
       published: res.data?.metadata?.publishedTime,
       word_count: content.split(/\s+/).length,
@@ -129,7 +130,9 @@ export class FirecrawlProvider implements Provider {
     });
 
     return {
-      url,
+      url: res.data?.metadata?.url ?? url,
+      title: res.data?.metadata?.title,
+      description: res.data?.metadata?.description,
       data: res.data?.json ?? {},
       source: 'firecrawl',
     };

@@ -24,6 +24,11 @@ interface ExaContentsResponse {
     url: string;
     publishedDate?: string;
     text?: string;
+    highlights?: string[];
+    extras?: {
+      links?: string[];
+      imageLinks?: string[];
+    };
   }>;
 }
 
@@ -111,7 +116,9 @@ export class ExaProvider implements Provider {
       body: {
         urls: [url],
         text: { maxCharacters: 10000 },
+        highlights: { numSentences: 3 },
         livecrawl: 'fallback',
+        extras: { links: 10, imageLinks: 5 },
       },
       provider: 'exa',
       timeout: this.timeout('read'),
@@ -125,6 +132,8 @@ export class ExaProvider implements Provider {
       content,
       published: r?.publishedDate,
       word_count: content.split(/\s+/).length,
+      links: r?.extras?.links,
+      images: r?.extras?.imageLinks,
       source: 'exa',
     };
   }

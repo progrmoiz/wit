@@ -22,14 +22,19 @@ export interface SearchResult {
 export interface ReadResult {
   url: string;
   title: string;
+  description?: string;
   content: string;
   published?: string;
   word_count: number;
+  links?: string[];
+  images?: string[];
   source: string;
 }
 
 export interface ExtractResult {
   url: string;
+  title?: string;
+  description?: string;
   data: Record<string, unknown>;
   source: string;
 }
@@ -51,6 +56,7 @@ export interface EmbedResult {
   embeddings: number[][];
   model: string;
   source: string;
+  usage?: { total_tokens: number };
 }
 
 export interface RerankResult {
